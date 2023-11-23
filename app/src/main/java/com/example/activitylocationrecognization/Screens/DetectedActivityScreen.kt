@@ -1,6 +1,7 @@
 package com.example.activitylocationrecognization.Screens
 
-import android.widget.Toast
+import android.os.Build
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -17,22 +18,17 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.activitylocationrecognization.Geofence.GeofenceMethods
-import com.example.activitylocationrecognization.Model.ActivityModel
 import com.example.activitylocationrecognization.Utils
-import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.database.DataSnapshot
-import com.google.firebase.database.DatabaseError
-import com.google.firebase.database.FirebaseDatabase
-import com.google.firebase.database.ValueEventListener
 
 class DetectedActivityScreen {
     companion object{
 
+        @RequiresApi(Build.VERSION_CODES.Q)
         @Composable
         fun ActivityScreenLayout(navController: NavController){
 
             val context= LocalContext.current
-            Utils.activityRecognization(context)
+            Utils.ActivityRecognization(context)
             GeofenceMethods.GetLocation(context)
             val list= remember { mutableStateListOf<String>() }
 

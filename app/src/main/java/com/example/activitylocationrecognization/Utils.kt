@@ -5,12 +5,22 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.location.Address
+import android.location.Geocoder
 import android.net.Uri
+import android.os.Build
 import android.util.Log
 import android.widget.Toast
-import androidx.core.app.ActivityCompat
+import androidx.annotation.RequiresApi
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
+import androidx.core.content.ContextCompat
 import com.example.activitylocationrecognization.ActivityRecognization.MyReceiver
 import com.example.activitylocationrecognization.Model.ActivityModel
+import com.example.activitylocationrecognization.Model.MyModel
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.isGranted
+import com.google.accompanist.permissions.rememberPermissionState
 import com.google.android.gms.location.ActivityRecognition
 import com.google.android.gms.location.ActivityTransition
 import com.google.android.gms.location.ActivityTransitionRequest
@@ -20,6 +30,7 @@ import com.google.firebase.database.DataSnapshot
 import com.google.firebase.database.DatabaseError
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.ValueEventListener
+import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Calendar
 
@@ -59,7 +70,10 @@ class Utils {
         }
 
 
-        fun activityRecognization(context: Context){
+        @OptIn(ExperimentalPermissionsApi::class)
+        @RequiresApi(Build.VERSION_CODES.Q)
+        @Composable
+        fun ActivityRecognization(context: Context){
             val transitions = mutableListOf<ActivityTransition>()
 
             transitions += ActivityTransition.Builder()
@@ -99,18 +113,29 @@ class Utils {
             val request = ActivityTransitionRequest(transitions)
             val intent = Intent(context, MyReceiver::class.java)
             val pendingIntent= PendingIntent.getBroadcast(context,0,intent, PendingIntent.FLAG_MUTABLE);
-            if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACTIVITY_RECOGNITION) != PackageManager.PERMISSION_GRANTED) {
-                ActivityRecognition.getClient(context).requestActivityTransitionUpdates(request, pendingIntent)
-                    .addOnCompleteListener {
-                        if(it.isSuccessful){
-                            Toast.makeText(context,"Successfully detected activity", Toast.LENGTH_SHORT).show()
-                        }
-                        else{
-                            Toast.makeText(context, it.exception!!.message.toString(), Toast.LENGTH_SHORT).show()
-                        }
-                    }
+            val locationPermissionsAlreadyGranted = ContextCompat.checkSelfPermission(
+                context, Manifest.permission.ACTIVITY_RECOGNITION) == PackageManager.PERMISSION_GRANTED
+
+            val activityPermissionState = rememberPermissionState(
+                Manifest.permission.ACTIVITY_RECOGNITION
+            )
+            if (activityPermissionState.status.isGranted) {
+                Toast.makeText(context, "Permission Granted", Toast.LENGTH_SHORT).show()
+                    ActivityRecognition.getClient(context)
+                        .requestActivityTransitionUpdates(request, pendingIntent)  .addOnCompleteListener {
+                            if (it.isSuccessful) {
+                                Toast.makeText(context, "Successfully detected activity", Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(context, it.exception!!.message.toString(), Toast.LENGTH_SHORT).show()
+                            }
             }
         }
+            SideEffect {
+                activityPermissionState.launchPermissionRequest()
+            }
+        }
+
+
         fun dialPhoneNumber(context: Context,phoneNumber: String) {
             val intent = Intent(Intent.ACTION_DIAL).apply {
                 data = Uri.parse("tel:$phoneNumber")
@@ -149,20 +174,53 @@ Log.d("val",dataSnapshot.value.toString())
                 override fun onDataChange(snapshot: DataSnapshot) {
                     for(dataSnapshot in snapshot.children){
                         val data = dataSnapshot.getValue(String::class.java)
-                        if (data != null){
-                            list.add(data.toString())
-                        }
-                            if(!list.contains(currentDate)){
+                            if(data != null && !list.contains(currentDate)){
                                 storeDates(currentDate)
+                                list.add(data.toString())
                             }
-
                     }
-
                 }
                 override fun onCancelled(error: DatabaseError) {
+                    Log.d("date",error.message.toString())
                 }
             })
-
         }
+
+        fun getLatLngFromAddress(context: Context,address: String): Pair<Double, Double> {
+            val geocoder = Geocoder(context)
+            var lat=0.0
+            var long=0.0
+            try {
+                val addresses: List<Address> = geocoder.getFromLocationName(address, 1)!!
+                if (addresses.isNotEmpty()) {
+                  lat = addresses[0].latitude
+                    long = addresses[0].longitude
+                    }
+            } catch (e: IOException) {
+                e.printStackTrace()
+            }
+            return Pair(lat, long)
+        }
+
+        fun getUserData(callback: (Pair<String, String>) -> Unit) {
+            var address = ""
+            var phoneNo = ""
+            FirebaseDatabase.getInstance().getReference("User").child(FirebaseAuth.getInstance().uid.toString())
+                .child("Details").addValueEventListener(object : ValueEventListener {
+                    override fun onDataChange(snapshot: DataSnapshot) {
+                        val data = snapshot.getValue(MyModel::class.java)
+                        address = data?.address.toString()
+                        phoneNo = data?.phoneNumber.toString()
+
+                        // Call the callback with the retrieved data
+                        callback.invoke(Pair(address, phoneNo))
+                    }
+
+                    override fun onCancelled(error: DatabaseError) {
+                       // Handle onCancelled if needed
+                    }
+                })
+        }
+
     }
 }

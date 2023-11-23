@@ -26,15 +26,13 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
 
             // Get the geofences that were triggered. A single event can trigger
             // multiple geofences.
-            val triggeringGeofences = geofencingEvent?.triggeringGeofences
+            val triggeringGeofences = geofencingEvent.triggeringGeofences
 
 Utils.dialPhoneNumber(context,"96678769")
 
             // Send notification and log the transition details.
-
         } else {
             // Log the error.
-
         }
     }
 }

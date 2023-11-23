@@ -72,4 +72,5 @@ dependencies {
 
     implementation ("com.google.android.gms:play-services-location:21.0.1")
     implementation("androidx.navigation:navigation-compose:2.7.5")
+    implementation ("com.google.accompanist:accompanist-permissions:0.31.1-alpha")
 }
